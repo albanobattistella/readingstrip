@@ -109,15 +109,146 @@ export default class ReadingStrip extends Extension {
     }
 
     onSettingsChanged() {
-	this.sMiddle.style = 'background-color : ' + this._settings.get_string('color-strip') + ';border: 1px solid #708090;';
-	this.sMiddle.opacity = 255 * this._settings.get_double('opacity')/100;
-	this.sMiddle.height =  Main.layoutManager.currentMonitor.height * this._settings.get_double('height')/100;
+	// Get colors - use system theme if enabled
+	let stripColor = this._settings.get_string('color-strip');
+	let focusColor = this._settings.get_string('color-focus');
+	
+	if (this._settings.get_boolean('use-system-theme')) {
+	    const themeContext = St.ThemeContext.get_for_stage(global.stage);
+	    const theme = themeContext.get_theme();
+	    // Use theme's accent color or fallback
+	    stripColor = 'rgba(53, 132, 228, 0.8)'; // GNOME blue
+	    focusColor = 'rgba(0, 0, 0, 0.75)';
+	}
 
-	this.sTop.visible = this.sBottom.visible = this.sMiddle.visible && this._settings.get_boolean('focusmode');
+	// Apply daltonism filter
+	const daltonismFilter = this._settings.get_string('daltonism-filter');
+	if (daltonismFilter !== 'none') {
+	    stripColor = this.applyDaltonismFilter(stripColor, daltonismFilter);
+	}
+
+	this.sMiddle.style = 'background-color : ' + stripColor + ';border: 1px solid #708090;';
+	this.sMiddle.opacity = 255 * this._settings.get_double('opacity')/100;
+	this.sMiddle.height = Main.layoutManager.currentMonitor.height * this._settings.get_double('height')/100;
+
+	// Focus mode with custom dimensions
+	const focusMode = this._settings.get_boolean('focusmode');
+	this.sTop.visible = this.sBottom.visible = this.sMiddle.visible && focusMode;
+	
+	if (focusMode) {
+	    const focusWidth = this._settings.get_double('focus-width');
+	    const focusHeight = this._settings.get_double('focus-height');
+	    const monitor = Main.layoutManager.currentMonitor;
+	    
+	    this.sMiddle.width = monitor.width * focusWidth / 100;
+	    this.sMiddle.height = monitor.height * focusHeight / 100;
+	}
+
 	this.sTop.opacity = this.sBottom.opacity = 255 * 75/100;
-	this.sTop.style = this.sBottom.style = 'background-color : ' + this._settings.get_string('color-focus');
+	this.sTop.style = this.sBottom.style = 'background-color : ' + focusColor;
 
 	this.refresh = this._settings.get_int('refresh');
+
+	// Apply blur effect
+	this.updateBlurEffect();
+	
+	// Apply cursor style
+	this.updateCursorStyle();
+	
+	// Handle duplicate strips
+	this.updateDuplicateStrips();
+    }
+
+    applyDaltonismFilter(color, filterType) {
+	// Simple color transformation for color blindness
+	// This is a basic implementation - real filters would be more complex
+	const rgba = color.match(/\d+/g);
+	if (!rgba || rgba.length < 3) return color;
+	
+	let [r, g, b] = rgba.map(Number);
+	
+	switch (filterType) {
+	    case 'protanopia': // Red-blind
+		r = 0.567 * r + 0.433 * g;
+		g = 0.558 * r + 0.442 * g;
+		break;
+	    case 'deuteranopia': // Green-blind
+		r = 0.625 * r + 0.375 * g;
+		g = 0.7 * r + 0.3 * g;
+		break;
+	    case 'tritanopia': // Blue-blind
+		r = 0.95 * r + 0.05 * b;
+		b = 0.433 * g + 0.567 * b;
+		break;
+	}
+	
+	return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+    }
+
+    updateBlurEffect() {
+	if (this._settings.get_boolean('blur-unfocused')) {
+	    // Add blur effect to non-focused windows
+	    const windows = global.get_window_actors();
+	    windows.forEach(window => {
+		if (window.meta_window !== global.display.focus_window) {
+		    window.add_effect_with_name('blur', new Shell.BlurEffect());
+		}
+	    });
+	} else {
+	    // Remove blur effects
+	    const windows = global.get_window_actors();
+	    windows.forEach(window => {
+		window.remove_effect_by_name('blur');
+	    });
+	}
+    }
+
+    updateCursorStyle() {
+	const cursorStyle = this._settings.get_string('cursor-style');
+	if (this.sMiddle.visible && cursorStyle !== 'default') {
+	    global.screen.set_cursor(this.getCursorType(cursorStyle));
+	} else {
+	    global.screen.set_cursor(Meta.Cursor.DEFAULT);
+	}
+    }
+
+    getCursorType(style) {
+	switch (style) {
+	    case 'crosshair': return Meta.Cursor.CROSSHAIR;
+	    case 'pointer': return Meta.Cursor.POINTING_HAND;
+	    case 'text': return Meta.Cursor.IBEAM;
+	    default: return Meta.Cursor.DEFAULT;
+	}
+    }
+
+    updateDuplicateStrips() {
+	if (this._settings.get_boolean('duplicate-strips')) {
+	    if (!this.sSecondary) {
+		this.sSecondary = new Strip('sSecondary');
+		this.sSecondary.style = this.sMiddle.style;
+		this.sSecondary.opacity = this.sMiddle.opacity * 0.7;
+		this.sSecondary.height = this.sMiddle.height;
+	    }
+	} else if (this.sSecondary) {
+	    this.sSecondary.destroy();
+	    this.sSecondary = null;
+	}
+    }
+
+    syncStrip() {
+	const currentMonitor = Main.layoutManager.currentMonitor;
+	const [x, y] = global.get_pointer();
+	
+	if (this.sMiddle.visible == true && this.sMiddle.locked == false) {
+	    this.sTop.sync(-currentMonitor.height + y - this.sMiddle.height / 2, currentMonitor);
+	    this.sMiddle.sync(y - this.sMiddle.height / 2, currentMonitor);
+	    this.sBottom.sync(y + this.sMiddle.height / 2, currentMonitor);
+	    
+	    // Sync secondary strip if enabled
+	    if (this.sSecondary && this._settings.get_boolean('duplicate-strips')) {
+		this.sSecondary.sync(y - this.sMiddle.height / 2 - 100, currentMonitor);
+	    }
+	}
     }
     
     enable() {
@@ -183,10 +314,38 @@ export default class ReadingStrip extends Extension {
 	this.sTop.destroy();
 	this.sMiddle.destroy();
 	this.sBottom.destroy();
+	
+	if (this.sSecondary) {
+	    this.sSecondary.destroy();
+	    this.sSecondary = null;
+	}
+
+	// Remove blur effects
+	const windows = global.get_window_actors();
+	windows.forEach(window => {
+	    window.remove_effect_by_name('blur');
+	});
+
+	// Reset cursor
+	global.screen.set_cursor(Meta.Cursor.DEFAULT);
 
 	this._setting_changed_signal_ids.forEach(id => this._settings.disconnect(id));
 	this._setting_changed_signal_ids = [];
 	this._settings = null;
+
+	if (this.pointerWatch) {
+	    this.pointerWatch.remove();
+	    this.pointerWatch = null;
+	}
+	
+	this.icon = null;
+	this.icon_on = null;
+	this.icon_off = null;
+
+	Main.wm.removeKeybinding('hotkey');
+	Main.wm.removeKeybinding('hotkey-locked');
+    }
+}
 
 	this.pointerWatch.remove();
 	this.pointerWatch = null;
