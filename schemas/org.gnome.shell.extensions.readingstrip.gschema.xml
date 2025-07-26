@@ -51,5 +51,45 @@
       <summary>Hotkey to lock/unlcok the strip</summary>
       <description>Hotkey to lock/unlock the strip</description>
     </key>
+    <key name="use-system-theme" type="b">
+      <default>false</default>
+      <summary>Use system theme colors</summary>
+      <description>Use system theme colors for strip</description>
+    </key>
+    <key name="blur-unfocused" type="b">
+      <default>false</default>
+      <summary>Blur unfocused windows</summary>
+      <description>Blur windows that are not in focus</description>
+    </key>
+    <key name="focus-width" type="d">
+      <default>100.0</default>
+      <summary>Focus mode width percentage</summary>
+      <description>Width percentage for focus mode</description>
+    </key>
+    <key name="focus-height" type="d">
+      <default>100.0</default>
+      <summary>Focus mode height percentage</summary>
+      <description>Height percentage for focus mode</description>
+    </key>
+    <key name="daltonism-filter" type="s">
+      <default>"none"</default>
+      <summary>Daltonism filter type</summary>
+      <description>Color filter for color blindness assistance</description>
+    </key>
+    <key name="duplicate-strips" type="b">
+      <default>false</default>
+      <summary>Enable multiple strips</summary>
+      <description>Allow multiple reading strips on screen</description>
+    </key>
+    <key name="cursor-style" type="s">
+      <default>"default"</default>
+      <summary>Cursor style</summary>
+      <description>Custom cursor style when strip is active</description>
+    </key>
+    <key name="user-profiles" type="s">
+      <default>"{}"</default>
+      <summary>User profiles</summary>
+      <description>JSON string of saved user profiles</description>
+    </key>
   </schema>
 </schemalist>
