@@ -247,6 +247,61 @@ export default class ReadingStripPreferences extends ExtensionPreferences {
 	    homogeneous: true,
 	    visible: true
 	});
+
+
+	// Load Profile functionality
+	const loadProfileButton = new Gtk.Button({
+	    label: _('Load Profile'),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	
+	loadProfileButton.connect('clicked', () => {
+	    const dialog = new Gtk.Dialog({
+		title: _('Load Profile'),
+		modal: true,
+		transient_for: window
+	    });
+	    
+	    const profileList = new Gtk.ListBox({
+		visible: true
+	    });
+	    
+	    const profiles = JSON.parse(settings.get_string('user-profiles') || '{}');
+	    Object.keys(profiles).forEach(profileName => {
+		const row = new Gtk.ListBoxRow({
+		    visible: true
+		});
+		const label = new Gtk.Label({
+		    label: profileName,
+		    visible: true
+		});
+		row.set_child(label);
+		profileList.append(row);
+	    });
+	    
+	    profileList.connect('row-activated', (widget, row) => {
+		const profileName = row.get_child().get_label();
+		const profile = profiles[profileName];
+		if (profile) {
+		    settings.set_double('height', profile.height);
+		    settings.set_double('opacity', profile.opacity);
+		    settings.set_string('color-strip', profile.colorStrip);
+		    settings.set_string('color-focus', profile.colorFocus);
+		    settings.set_boolean('vertical', profile.vertical);
+		    settings.set_boolean('focusmode', profile.focusmode);
+		    if (profile.focusWidth) settings.set_double('focus-width', profile.focusWidth);
+		    if (profile.focusHeight) settings.set_double('focus-height', profile.focusHeight);
+		}
+		dialog.close();
+	    });
+	    
+	    dialog.get_content_area().append(profileList);
+	    dialog.show();
+	});
+	
+	prefsWidget.attach(loadProfileButton, 0, 20, 2, 1);
+
 	prefsWidget.attach(buttonBox, 0, 10, 2, 1);
 
 	const focusProfileButton = new Gtk.Button({
@@ -296,6 +351,252 @@ export default class ReadingStripPreferences extends ExtensionPreferences {
 	});
 	buttonBox.insert(defaultProfileButton, 3);
 
+	// System Theme
+	const systemThemeLabel = new Gtk.Label({
+	    label: _('<b>Use System Theme</b>'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(systemThemeLabel, 0, 11, 1, 1);
+
+	const systemThemeSwitch = new Gtk.Switch({
+	    active: settings.get_boolean('use-system-theme'),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(systemThemeSwitch, 1, 11, 1, 1);
+
+	settings.bind(
+	    'use-system-theme',
+	    systemThemeSwitch,
+	    'active',
+	    Gio.SettingsBindFlags.DEFAULT
+	);
+
+	// Blur Unfocused Windows
+	const blurLabel = new Gtk.Label({
+	    label: _('<b>Blur Unfocused Windows</b>'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(blurLabel, 0, 12, 1, 1);
+
+	const blurSwitch = new Gtk.Switch({
+	    active: settings.get_boolean('blur-unfocused'),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(blurSwitch, 1, 12, 1, 1);
+
+	settings.bind(
+	    'blur-unfocused',
+	    blurSwitch,
+	    'active',
+	    Gio.SettingsBindFlags.DEFAULT
+	);
+
+	// Focus Width
+	const focusWidthLabel = new Gtk.Label({
+	    label: _('<b>Focus Width</b> (%)'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(focusWidthLabel, 0, 13, 1, 1);
+
+	const focusWidthSpinButton = new Gtk.SpinButton({
+	    value: settings.get_double('focus-width'),
+	    digits: 1,
+	    adjustment: new Gtk.Adjustment({
+		lower: 10,
+		upper: 100,
+		step_increment: 5,
+		page_increment: 10
+	    }),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(focusWidthSpinButton, 1, 13, 1, 1);
+
+	settings.bind(
+	    'focus-width',
+	    focusWidthSpinButton,
+	    'value',
+	    Gio.SettingsBindFlags.DEFAULT
+	);
+
+	// Focus Height
+	const focusHeightLabel = new Gtk.Label({
+	    label: _('<b>Focus Height</b> (%)'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(focusHeightLabel, 0, 14, 1, 1);
+
+	const focusHeightSpinButton = new Gtk.SpinButton({
+	    value: settings.get_double('focus-height'),
+	    digits: 1,
+	    adjustment: new Gtk.Adjustment({
+		lower: 10,
+		upper: 100,
+		step_increment: 5,
+		page_increment: 10
+	    }),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(focusHeightSpinButton, 1, 14, 1, 1);
+
+	settings.bind(
+	    'focus-height',
+	    focusHeightSpinButton,
+	    'value',
+	    Gio.SettingsBindFlags.DEFAULT
+	);
+
+	// Daltonism Filter
+	const daltonismLabel = new Gtk.Label({
+	    label: _('<b>Color Blindness Filter</b>'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(daltonismLabel, 0, 15, 1, 1);
+
+	const daltonismCombo = new Gtk.ComboBoxText({
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	daltonismCombo.append('none', _('None'));
+	daltonismCombo.append('protanopia', _('Protanopia'));
+	daltonismCombo.append('deuteranopia', _('Deuteranopia'));
+	daltonismCombo.append('tritanopia', _('Tritanopia'));
+	daltonismCombo.set_active_id(settings.get_string('daltonism-filter'));
+	prefsWidget.attach(daltonismCombo, 1, 15, 1, 1);
+
+	daltonismCombo.connect('changed', () => {
+	    settings.set_string('daltonism-filter', daltonismCombo.get_active_id());
+	});
+
+	// Duplicate Strips
+	const duplicateLabel = new Gtk.Label({
+	    label: _('<b>Multiple Strips</b>'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(duplicateLabel, 0, 16, 1, 1);
+
+	const duplicateSwitch = new Gtk.Switch({
+	    active: settings.get_boolean('duplicate-strips'),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(duplicateSwitch, 1, 16, 1, 1);
+
+	settings.bind(
+	    'duplicate-strips',
+	    duplicateSwitch,
+	    'active',
+	    Gio.SettingsBindFlags.DEFAULT
+	);
+
+	// Cursor Style
+	const cursorLabel = new Gtk.Label({
+	    label: _('<b>Cursor Style</b>'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(cursorLabel, 0, 17, 1, 1);
+
+	const cursorCombo = new Gtk.ComboBoxText({
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	cursorCombo.append('default', _('Default'));
+	cursorCombo.append('crosshair', _('Crosshair'));
+	cursorCombo.append('pointer', _('Pointer'));
+	cursorCombo.append('text', _('Text'));
+	cursorCombo.set_active_id(settings.get_string('cursor-style'));
+	prefsWidget.attach(cursorCombo, 1, 17, 1, 1);
+
+	cursorCombo.connect('changed', () => {
+	    settings.set_string('cursor-style', cursorCombo.get_active_id());
+	});
+
+	// User Profiles Section
+	const profileSaveLabel = new Gtk.Label({
+	    label: _('<b>Save Profile</b>'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(profileSaveLabel, 0, 18, 1, 1);
+
+	const profileNameEntry = new Gtk.Entry({
+	    placeholder_text: _('Profile name'),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(profileNameEntry, 1, 18, 1, 1);
+
+	const saveProfileButton = new Gtk.Button({
+	    label: _('Save Current Settings'),
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(saveProfileButton, 0, 19, 2, 1);
+
+	saveProfileButton.connect('clicked', () => {
+	    const profileName = profileNameEntry.get_text();
+	    if (profileName) {
+		const profiles = JSON.parse(settings.get_string('user-profiles') || '{}');
+		profiles[profileName] = {
+		    height: settings.get_double('height'),
+		    opacity: settings.get_double('opacity'),
+		    colorStrip: settings.get_string('color-strip'),
+		    colorFocus: settings.get_string('color-focus'),
+		    vertical: settings.get_boolean('vertical'),
+		    focusmode: settings.get_boolean('focusmode'),
+		    focusWidth: settings.get_double('focus-width'),
+		    focusHeight: settings.get_double('focus-height')
+		};
+		settings.set_string('user-profiles', JSON.stringify(profiles));
+		profileNameEntry.set_text('');
+	    }
+	});
+
+	// Shortcut Configuration
+	const shortcutLabel = new Gtk.Label({
+	    label: _('<b>Keyboard Shortcuts</b>'),
+	    halign: Gtk.Align.START,
+	    use_markup: true,
+	    visible: true
+	});
+	prefsWidget.attach(shortcutLabel, 0, 20, 2, 1);
+
+	const hotkeyLabel = new Gtk.Label({
+	    label: _('Toggle Strip:'),
+	    halign: Gtk.Align.START,
+	    visible: true
+	});
+	prefsWidget.attach(hotkeyLabel, 0, 21, 1, 1);
+
+	const hotkeyEntry = new Gtk.Entry({
+	    text: settings.get_strv('hotkey')[0] || '<Super><Control>space',
+	    halign: Gtk.Align.CENTER,
+	    visible: true
+	});
+	prefsWidget.attach(hotkeyEntry, 1, 21, 1, 1);
+
+	hotkeyEntry.connect('changed', () => {
+	    settings.set_strv('hotkey', [hotkeyEntry.get_text()]);
+	});
+
 	const aboutLabel = new Gtk.Label({
 	    label: '<a href="https://github.com/lupantano/readingstrip">Reading Strip</a> Copyright (C) 2021-2025 <a href="https://matrix.to/#/@lupantano:matrix.org">Luigi Pantano</a>',
 	    halign: Gtk.Align.CENTER,
@@ -303,7 +604,7 @@ export default class ReadingStripPreferences extends ExtensionPreferences {
 	    use_markup: true,
 	    visible: true
 	});
-	prefsWidget.attach(aboutLabel, 0, 11, 2, 1);
+	prefsWidget.attach(aboutLabel, 0, 22, 2, 1);
 
 	return prefsWidget;
     }
